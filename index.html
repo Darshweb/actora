@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ACTORA Health Smart Diet AI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* ===== Theme variables ===== */
+    :root{
+      --bg:#071229; --card:#0f1726; --accent:#22c55e; --accent-2:#06b6d4;
+      --muted:#98a2b3; --text:#e6f0fb; --glass: rgba(255,255,255,0.03); --radius:12px;
+      --card-2: rgba(255,255,255,0.02);
+      --transition: 220ms ease;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    :root[data-theme='light']{
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --card-2: rgba(2,6,23,0.03);
+      --accent: #16a34a;
+      --accent-2: #0891b2;
+      --muted: #475569;
+      --text: #071427;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg), #e9f2fb);color:var(--text);-webkit-font-smoothing:antialiased}
+    .wrap{max-width:1100px;margin:22px auto;padding:18px;transition:background var(--transition)}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    h1{margin:0;font-size:20px}
+    .tag{color:var(--muted);font-size:13px}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:13px}
+    /* grid */
+    .grid{display:grid;grid-template-columns:1fr 380px;gap:16px;margin-top:18px}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.aside{order:2}}
+    /* cards */
+    .card{background:linear-gradient(180deg,var(--card), rgba(255,255,255,0.02)); padding:16px;border-radius:var(--radius);box-shadow:0 10px 30px rgba(2,6,23,0.25);transition:box-shadow var(--transition)}
+    .card .title{font-weight:700;margin-bottom:6px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea,button{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--text);transition:all var(--transition)}
+    textarea{min-height:120px;resize:vertical}
+    button{cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#052014;font-weight:700;border:none;padding:10px 12px}
+    .smallBtn{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted);cursor:pointer}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:var(--card-2);font-weight:700}
+    .history{max-height:260px;overflow:auto;padding:6px;background:var(--card-2);border-radius:8px}
+    .mutedBox{padding:8px;background:var(--card-2);border-radius:8px;color:var(--muted)}
+    /* thinking overlay */
+    .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);z-index:9999;backdrop-filter:blur(3px)}
+    .thinkBox{background:linear-gradient(180deg,#071327,#0a2333);padding:18px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:260px;color:var(--text)}
+    .dots{display:inline-block;height:14px}
+    .dot{display:inline-block;width:10px;height:10px;margin:0 4px;border-radius:50%;background:var(--accent);opacity:0;transform:translateY(6px)}
+    @keyframes dotIn{0%{opacity:0;transform:translateY(6px)}50%{opacity:1;transform:translateY(0)}100%{opacity:0.6;transform:translateY(-3px)}}
+    .dot.a{animation:dotIn 1s infinite 0s}
+    .dot.b{animation:dotIn 1s infinite .15s}
+    .dot.c{animation:dotIn 1s infinite .3s}
+    /* login panel */
+    .authPanel{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.55);z-index:10000}
+    .authCard{width:380px;background:var(--card);padding:18px;border-radius:12px;box-shadow:0 20px 60px rgba(2,6,23,0.6)}
+    .authCard h2{margin:0 0 8px}
+    .authActions{display:flex;gap:8px;margin-top:10px}
+    .smallLink{background:transparent;border:none;color:var(--accent);cursor:pointer;padding:6px}
+    /* meal style */
+    .meal{padding:10px;border-radius:10px;background:var(--card-2);margin-bottom:10px}
+    footer{margin-top:14px;text-align:center;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap" id="appWrap">
+    <header>
+      <div>
+        <h1>ACTORA Health Smart Diet AI</h1>
+        <div class="tag">Privacy-first assistant — now with light / dark mode & login</div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="muted small" id="currentUserDisplay">Not signed in</div>
+        <button class="smallBtn" id="themeToggle">Toggle theme</button>
+        <button class="smallBtn" id="btnSignOut" style="display:none">Sign out</button>
+      </div>
+    </header>
+
+    <section class="grid" aria-live="polite">
+      <main class="card" role="main">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div>
+            <div class="title">Generate a Diet Plan</div>
+            <div class="muted small">Enter weight — ACTORA is Thinking for best results</div>
+          </div>
+          <div style="text-align:right">
+            <div class="muted small">Saved plans: <span id="historyCount">0</span></div>
+          </div>
+        </div>
+
+        <!-- inputs -->
+        <div style="margin-top:12px" class="row">
+          <div style="flex:1">
+            <label>Weight (kg)</label>
+            <input id="inpWeight" type="number" min="10" max="300" placeholder="e.g. 72" />
+          </div>
+          <div style="width:160px">
+            <label>Age (optional)</label>
+            <input id="inpAge" type="number" min="10" max="120" placeholder="30" />
+          </div>
+        </div>
+
+        <div style="margin-top:8px" class="row">
+          <div style="flex:1">
+            <label>Gender</label>
+            <select id="inpGender">
+              <option value="">Prefer not to say</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="nonbinary">Non-binary</option>
+            </select>
+          </div>
+          <div style="width:220px">
+            <label>Activity level</label>
+            <select id="inpActivity">
+              <option value="moderate">Moderate (default)</option>
+              <option value="sedentary">Sedentary</option>
+              <option value="light">Light</option>
+              <option value="active">Active</option>
+              <option value="very">Very active</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:8px" class="row">
+          <div style="flex:1">
+            <label>Goal</label>
+            <select id="inpGoal">
+              <option value="maintain">Maintenance</option>
+              <option value="lose">Weight Loss</option>
+              <option value="gain">Muscle Gain</option>
+            </select>
+          </div>
+          <div style="width:220px">
+            <label>Mood (optional)</label>
+            <select id="inpMood">
+              <option value="">—</option>
+              <option>😊 Happy</option>
+              <option>😐 Neutral</option>
+              <option>😔 Stressed</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:10px" class="controls">
+          <select id="inpPersonality" style="width:220px">
+            <option value="friendly">Friendly coach</option>
+            <option value="strict">Strict trainer</option>
+            <option value="clinical">Clinical (neutral)</option>
+          </select>
+          <button class="primary" id="btnGenerate">Generate Plan</button>
+          <button class="smallBtn" id="btnSavePlan">Save plan</button>
+          <button class="smallBtn" id="btnExport">Export JSON</button>
+          <button class="smallBtn" id="btnClearHistory">Clear History</button>
+        </div>
+
+        <div style="margin-top:14px" class="muted small">Assumptions: If you don't supply height/age/gender we use reasonable defaults (adult, ~170cm, 30y). This tool is NOT medical advice.</div>
+
+        <hr style="border:none;border-top:1px dashed rgba(255,255,255,0.04);margin:14px 0">
+
+        <div id="resultArea" aria-live="polite">
+          <div id="resultHeader" style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="pill" id="pillSummary">No plan yet</div>
+              <div class="muted small" style="margin-top:6px" id="assumptionsText">Assumptions shown here.</div>
+            </div>
+            <div style="text-align:right">
+              <div class="muted small">Plans saved: <span id="savedCount">0</span></div>
+            </div>
+          </div>
+
+          <div id="output" style="margin-top:12px"></div>
+        </div>
+      </main>
+
+      <aside class="card aside" aria-label="History & quick tools">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="title">History</div>
+            <div class="muted small">Past logs & saved plans (local)</div>
+          </div>
+          <div><button class="smallBtn" id="btnShowAllPlans">Show saved</button></div>
+        </div>
+
+        <div style="margin-top:10px" class="history" id="historyList"></div>
+
+        <div style="margin-top:12px">
+          <label>Quick add weight</label>
+          <div class="row">
+            <input id="quickWeight" placeholder="e.g. 78" />
+            <button id="quickAdd" class="smallBtn" style="width:120px">Log</button>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px dashed rgba(255,255,255,0.04);margin:12px 0">
+        <div>
+          <div class="muted small">Memory & trends</div>
+          <div style="margin-top:8px" id="memoryText" class="mutedBox">ACTORA tracks trends and adapts tips over time.</div>
+        </div>
+      </aside>
+    </section>
+
+  <p style="opacity:.6;margin-top:30px;">ACTORA Smart AI © 2026 All Rights Reserved</p>
+  <p style="opacity:.6;margin-top:30px;">Try Our ACTORA Routine Tracker Noww!!</p>
+  </div>
+
+  <!-- thinking overlay (hidden by default) -->
+  <div id="thinkingOverlay" class="overlay" style="display:none">
+    <div class="thinkBox" role="status" aria-live="polite">
+      <div style="font-weight:700">ACTORA is thinking…</div>
+      <div class="dots" aria-hidden="true">
+        <span class="dot a"></span><span class="dot b"></span><span class="dot c"></span>
+      </div>
+      <div class="muted small">Generating a helpful, human-style plan — this takes seconds</div>
+    </div>
+  </div>
+
+  <!-- auth panel (username + password only) -->
+  <div id="authPanel" class="authPanel" style="display:none">
+    <div class="authCard">
+      <h2>Sign in to ACTORA</h2>
+      <div class="muted small">Simple local accounts (username & password). Data stays on this device.</div>
+      <div style="margin-top:10px">
+        <label>Username</label>
+        <input id="authUser" placeholder="username" />
+        <label style="margin-top:8px">Password</label>
+        <input id="authPass" type="password" placeholder="password" />
+        <div class="authActions" style="margin-top:10px">
+          <button class="primary" id="btnLogin">Login</button>
+          <button class="smallBtn" id="btnCreate">Create account</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <button class="smallLink" id="btnContinueGuest">Continue as guest</button>
+          <div style="flex:1"></div>
+          <button class="smallLink" id="btnForgot" title="This is local-only; password reset not possible">Forgot?</button>
+        </div>
+        <div id="authMsg" class="muted small" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /********************************************************
+     ACTORA Full Single-file App
+     - Dark/Light theme toggle (persisted)
+     - Login / Create account (username + password only)
+     - All previous offline-AI features preserved
+     ********************************************************/
+
+    /* ===== Storage keys & user system ===== */
+    const USERS_KEY = 'actora_users_v2';
+    const CURRENT_KEY = 'actora_current_v2';
+    const THEME_KEY = 'actora_theme_v2';
+    let users = JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
+    let currentUser = localStorage.getItem(CURRENT_KEY) || null;
+
+    /* load or create default global store only when guest/no-user chosen;
+       but when logged in we map store to users[currentUser].store */
+    let store = null; // will be assigned to user's store reference
+
+    // helper to make a fresh empty store structure
+    function createEmptyStore(){
+      return { history: [], plans: [], settings: {}, stats: {} };
+    }
+
+    // initialize theme (apply saved)
+    function initTheme(){
+      const t = localStorage.getItem(THEME_KEY) || 'dark';
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+      $('themeToggle').textContent = (t === 'light') ? 'Dark mode' : 'Light mode';
+    }
+    initTheme();
+
+    // theme toggle
+    $('themeToggle').addEventListener('click', ()=>{
+      const cur = document.documentElement.getAttribute('data-theme');
+      const next = (cur === 'light') ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem(THEME_KEY, next === 'light' ? 'light' : 'dark');
+      $('themeToggle').textContent = (next === 'light') ? 'Dark mode' : 'Light mode';
+    });
+
+    // --- Authentication UI wiring ---
+    const authPanel = $('authPanel');
+    const currentUserDisplay = $('currentUserDisplay');
+    const btnSignOut = $('btnSignOut');
+
+    // show auth panel if not logged in
+    function showAuthPanel(){
+      authPanel.style.display = 'flex';
+      currentUserDisplay.textContent = 'Not signed in';
+      $('btnSignOut').style.display = 'none';
+    }
+    function hideAuthPanel(){
+      authPanel.style.display = 'none';
+      $('btnSignOut').style.display = currentUser ? 'inline-block' : 'none';
+      currentUserDisplay.textContent = currentUser ? `Signed in: ${currentUser}` : 'Guest';
+    }
+
+    // create account
+    $('btnCreate').addEventListener('click', ()=>{
+      const u = String($('authUser').value||'').trim();
+      const p = String($('authPass').value||'').trim();
+      if(!u || !p){ $('authMsg').textContent = 'Enter username & password'; return; }
+      if(users[u]){ $('authMsg').textContent = 'Username taken. Choose another.'; return; }
+      users[u] = { password: p, store: createEmptyStore() };
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      $('authMsg').textContent = 'Account created — you can login now.';
+    });
+
+    // login
+    $('btnLogin').addEventListener('click', ()=>{
+      const u = String($('authUser').value||'').trim();
+      const p = String($('authPass').value||'').trim();
+      if(!u || !p){ $('authMsg').textContent = 'Enter username & password'; return; }
+      if(!users[u] || users[u].password !== p){ $('authMsg').textContent = 'Invalid username or password'; return; }
+      // success
+      currentUser = u;
+      localStorage.setItem(CURRENT_KEY, currentUser);
+      // map store reference to logged-in user's store object (by reference)
+      store = users[currentUser].store || createEmptyStore();
+      users[currentUser].store = store;
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      $('authMsg').textContent = '';
+      hideAuthPanel();
+      initializeAfterAuth();
+    });
+
+    // continue as guest
+    $('btnContinueGuest').addEventListener('click', ()=>{
+      currentUser = null;
+      localStorage.removeItem(CURRENT_KEY);
+      store = createEmptyStore();
+      hideAuthPanel();
+      initializeAfterAuth();
+    });
+
+    // sign out
+    $('btnSignOut').addEventListener('click', ()=>{
+      if(confirm('Sign out?')) {
+        currentUser = null;
+        localStorage.removeItem(CURRENT_KEY);
+        store = createEmptyStore();
+        hideAuthPanel();
+        showAuthPanel();
+        renderHistory();
+      }
+    });
+
+    // if already logged in, restore store
+    if(currentUser && users[currentUser]) {
+      store = users[currentUser].store = users[currentUser].store || createEmptyStore();
+    } else {
+      store = createEmptyStore();
+    }
+
+    // if no user logged in, show auth panel (but user can continue as guest)
+    if(!currentUser){
+      showAuthPanel();
+    } else {
+      hideAuthPanel();
+      initializeAfterAuth();
+    }
+
+    // quick helper $
+    function $(id){ return document.getElementById(id); }
+
+    /********** Existing AI logic (kept and integrated) **********/
+    // preserve original names for compatibility
+    const STORAGE_KEY = 'actora_offline_ai_runtime';
+    // store variable is per-user store above; persist will write to users DB or local global if guest
+
+    function persist(){
+      // write to user object if logged in, else write to localStorage global area
+      if(currentUser){
+        users[currentUser].store = store;
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      } else {
+        // store guest in a safekey
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      }
+      renderHistory();
+      updateCounts();
+    }
+
+    function loadGuestStore(){
+      const g = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if(g && g.history) store = g;
+      else store = createEmptyStore();
+    }
+
+    // if guest and no current user, attempt to load guest store
+    if(!currentUser && (!store || !store.history)) loadGuestStore();
+
+    // UI references
+    const btnGenerate = $('btnGenerate');
+    const overlay = $('thinkingOverlay');
+    const output = $('output');
+    const pill = $('pillSummary');
+    const assumptionsText = $('assumptionsText');
+    const historyList = $('historyList');
+    const historyCount = $('historyCount');
+    const savedCount = $('savedCount');
+
+    // initialize counts
+    function updateCounts(){
+      const total = (store.plans?store.plans.length:0) + (store.history?store.history.length:0);
+      historyCount.textContent = String(total);
+      savedCount.textContent = String(store.plans?store.plans.length:0);
+      $('historyCount').textContent = String(total);
+    }
+
+    // initial render of history
+    renderHistory(); updateCounts();
+
+    /* helpers */
+    function delay(ms){ return new Promise(res => setTimeout(res, ms)); }
+    function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+    function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+    function round(v,dec=0){ const p=Math.pow(10,dec); return Math.round(v*p)/p; }
+
+    // infer height heuristic
+    function inferHeightFromWeight(w){
+      const bmi = 22;
+      const height_m = Math.sqrt(w / bmi);
+      return Math.round(height_m * 100);
+    }
+
+    // WIRE Generate button with 5-second thinking animation
+    btnGenerate.addEventListener('click', async ()=>{
+      const weight = Number($('inpWeight').value);
+      const age = Number($('inpAge').value) || null;
+      const gender = $('inpGender').value || null;
+      const activity = $('inpActivity').value || 'moderate';
+      const goal = $('inpGoal').value || 'maintain';
+      const mood = $('inpMood').value || '';
+      const personality = $('inpPersonality').value || 'friendly';
+
+      if(!weight || weight < 10 || weight > 400){ alert('Please enter a weight between 10 and 400 kg.'); return; }
+
+      // display assumptions
+      const assumedHeight = inferHeightFromWeight(weight);
+      assumptionsText.textContent = `Assumptions: height ≈ ${assumedHeight} cm; age ${age||30}y; gender ${gender||'unspecified'}; activity = ${activity}; goal = ${goal}.`;
+
+      // push to history
+      store.history = store.history || [];
+      store.history.unshift({ when: new Date().toISOString(), weight, age, gender, activity, goal, mood });
+      if(store.history.length > 500) store.history.pop();
+      persist();
+
+      // show thinking overlay for realism (5s)
+      overlay.style.display = 'flex';
+      await delay(5000);
+
+      // generate plan
+      const plan = generatePlan({
+        weight, age, gender, activity, goal, mood, personality, assumedHeight
+      });
+
+      overlay.style.display = 'none';
+      displayPlan(plan);
+    });
+
+    // Quick add weight
+    $('quickAdd').addEventListener('click', ()=>{
+      const v = Number($('quickWeight').value);
+      if(!v || v < 10){ alert('Enter weight >= 10'); return; }
+      store.history.unshift({ when: new Date().toISOString(), weight: v });
+      if(store.history.length > 500) store.history.pop();
+      persist(); $('quickWeight').value=''; alert('Logged weight locally.');
+    });
+
+    // Save current plan
+    $('btnSavePlan').addEventListener('click', ()=>{
+      const p = window._lastPlan;
+      if(!p) return alert('No plan to save.');
+      store.plans = store.plans || [];
+      store.plans.unshift( Object.assign({}, p, { savedAt: new Date().toISOString() }) );
+      if(store.plans.length>500) store.plans.pop();
+      persist(); alert('Plan saved locally.');
+    });
+
+    // Export JSON
+    $('btnExport').addEventListener('click', ()=>{
+      const dataStr = JSON.stringify(store, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'actora_data.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // Clear history & plans
+    $('btnClearHistory').addEventListener('click', ()=>{
+      if(!confirm('Clear local history and saved plans?')) return;
+      store.history = []; store.plans = []; persist(); output.innerHTML=''; pill.textContent='No plan yet';
+    });
+
+    $('btnShowAllPlans').addEventListener('click', ()=>{
+      // show saved plans in output
+      if(!store.plans || store.plans.length===0){ alert('No saved plans.'); return; }
+      output.innerHTML = '<div class="title">Saved Plans</div>';
+      store.plans.slice(0,20).forEach((p, idx)=> {
+        const d = new Date(p.createdAt || p.savedAt || Date.now());
+        const block = document.createElement('div'); block.className='meal';
+        block.innerHTML = `<div style="display:flex;justify-content:space-between"><div><strong>Plan ${idx+1}</strong><div class="muted small">${p.weight} kg • ${p.goal}</div></div><div class="muted small">${d.toLocaleString()}</div></div>
+          <div style="margin-top:8px" class="muted small">Calories: ${p.targetCalories} kcal • Macros: ${p.macros.protein_g}P ${p.macros.carbs_g}C ${p.macros.fat_g}F</div>`;
+        output.appendChild(block);
+      });
+    });
+
+    // Render history list
+    function renderHistory(){
+      historyList.innerHTML = '';
+      const combined = (store.plans || []).map(p => ({ type: 'plan', when: p.savedAt || p.createdAt, weight: p.weight, meta: p })) // saved plans
+        .concat((store.history || []).map(h => ({ type:'log', when: h.when, weight: h.weight, meta: h })));
+      if(combined.length === 0){
+        historyList.innerHTML = '<div class="muted small">No logs or saved plans yet.</div>';
+        updateCounts();
+        return;
+      }
+      combined.slice(0,40).forEach(item => {
+        const d = new Date(item.when || Date.now());
+        const wrapper = document.createElement('div');
+        wrapper.style.padding = '8px'; wrapper.style.borderBottom = '1px dashed rgba(255,255,255,0.02)';
+        if(item.type === 'plan'){
+          wrapper.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>${item.weight} kg</strong><div class="muted small">Saved plan</div></div>
+            <div class="muted small">${d.toLocaleString()}</div>
+          </div>`;
+        } else {
+          wrapper.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>${item.weight} kg</strong><div class="muted small">Log • ${item.meta.goal||''} ${item.meta.activity?('• '+item.meta.activity):''}</div></div>
+            <div class="muted small">${d.toLocaleString()}</div>
+          </div>`;
+        }
+        historyList.appendChild(wrapper);
+      });
+      updateCounts();
+    }
+
+    /********** The "AI" plan generator (script-only, enhanced) **********/
+    function generatePlan(opts){
+      const { weight, age, gender, activity, goal, mood, personality, assumedHeight } = opts;
+      // 1) Maintenance calories estimate using 24 kcal/kg baseline (simplified)
+      const baselinePerKg = 24;
+      const bmr = Math.round(weight * baselinePerKg);
+      const activityMultipliers = { sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very:1.9 };
+      const actFactor = activityMultipliers[activity] || activityMultipliers.moderate;
+      const maintenance = Math.round(bmr * actFactor);
+
+      // 2) Goal adjustment
+      let targetCalories = maintenance;
+      if(goal === 'lose') targetCalories = Math.round(maintenance * 0.82);
+      if(goal === 'gain') targetCalories = Math.round(maintenance * 1.12);
+
+      // 3) Macros (protein in g/kg)
+      const proteinPerKg = (goal === 'gain') ? 1.9 : 1.6;
+      const protein_g = Math.round(proteinPerKg * weight);
+      const fat_pct = (goal === 'gain') ? 0.25 : (goal === 'lose' ? 0.22 : 0.27);
+      const fat_cal = Math.round(targetCalories * fat_pct);
+      const fat_g = Math.round(fat_cal / 9);
+      const protein_cal = protein_g * 4;
+      const carbs_cal = targetCalories - protein_cal - fat_cal;
+      const carbs_g = Math.max(0, Math.round(carbs_cal / 4));
+
+      // 4) Water estimate
+      let water_l = clamp(weight * 0.035, 1.0, 6.0);
+      water_l = round(water_l, 1);
+
+      // 5) Exercise recommendation
+      const exercise = (goal === 'gain') ? "Strength training 3×/week + mobility work" :
+                       (goal === 'lose') ? "Cardio 4–5×/week + 2 strength sessions" :
+                       "Mixed cardio + strength 3×/week; daily 20–30 min movement";
+
+      // 6) Trend detection
+      const recent = (store.history || []).slice(0,8).map(h => h.weight).filter(Boolean);
+      let trend = 'stable';
+      if(recent.length >= 3){
+        const avg = recent.reduce((a,b) => a+b, 0)/recent.length;
+        if(avg > weight + 0.5) trend = 'decreasing';
+        if(avg < weight - 0.5) trend = 'increasing';
+      }
+
+      // 7) Intro text by personality
+      const intros = {
+        friendly: [
+          `Nice — here's a friendly plan tuned for ~${targetCalories} kcal/day. Assumed height ≈ ${assumedHeight} cm, age ${age||30}.`,
+          `Alright! I prepared a practical plan around ${targetCalories} kcal/day. Small consistent steps matter.`
+        ],
+        strict: [
+          `Plan ready. Target: ${targetCalories} kcal/day. Follow it consistently for results.`,
+          `${targetCalories} kcal/day set. Focus on portion control and protein timing.`
+        ],
+        clinical: [
+          `Estimated maintenance: ${maintenance} kcal/day. Recommended target: ${targetCalories} kcal/day.`,
+          `Clinical summary: target energy intake = ${targetCalories} kcal/day based on simplified model.`
+        ]
+      };
+      const intro = randPick(intros[personality] || intros.friendly);
+
+      // 8) Mood-aware tip
+      const moodNotes = {
+        "😊 Happy": "You're in a good spot — use the momentum.",
+        "😐 Neutral": "Try to keep meals regular and hydrate.",
+        "😔 Stressed": "Include short breathing breaks and easy walks to support mood."
+      };
+      const moodTip = mood ? (moodNotes[mood] || '') : '';
+
+      // 9) Build 3-day meal plan
+      const mealsPerDay = [
+        { label: 'Breakfast', pct: 0.25 },
+        { label: 'Lunch', pct: 0.33 },
+        { label: 'Dinner', pct: 0.30 },
+        { label: 'Snacks', pct: 0.12 }
+      ];
+      function createMeals(dayIdx){
+        return mealsPerDay.map(m => {
+          const cals = Math.round(targetCalories * m.pct * (1 + ((dayIdx%3)-1)*0.02)); // slight variation
+          const prot = Math.round(protein_g * m.pct);
+          const fats = Math.round(fat_g * m.pct);
+          const carbs = Math.round(carbs_g * m.pct);
+          const foods = suggestFoodsByWeightCategory(weight, m.label);
+          return { label: m.label, calories: cals, protein_g: prot, fat_g: fats, carbs_g: carbs, foods };
+        });
+      }
+      const dayPlans = [createMeals(0), createMeals(1), createMeals(2)];
+
+      // 10) substitutions & microtips
+      const substitutions = {
+        veg: "Use paneer/tofu/legumes for protein.",
+        lactose: "Try plant milk or low-lactose dairy.",
+        gluten: "Use rice/quinoa/pseudo-cereals as alternatives."
+      };
+
+      const plan = {
+        createdAt: new Date().toISOString(),
+        weight, age, gender, activity, goal, mood, personality, assumedHeight,
+        maintenance, targetCalories,
+        macros: { protein_g, carbs_g, fat_g },
+        water_l, exercise, trend, intro, moodTip, dayPlans, substitutions
+      };
+
+      window._lastPlan = plan; // store last plan globally
+      return plan;
+    }
+
+    // suggest natural foods by weight & meal
+    function suggestFoodsByWeightCategory(weight, mealLabel){
+      const low = weight <= 40;
+      const mid = weight > 40 && weight <= 70;
+      const high = weight > 70;
+      const breakfastOptions = [
+        "Oats with milk and banana",
+        "2 boiled eggs + toast + fruit",
+        "Greek yogurt with fruit & nuts",
+        "Protein smoothie (milk/banana/peanut butter)"
+      ];
+      const lunchOptions = [
+        "Brown rice + dal + mixed veg",
+        "Grilled chicken + salad + small rice",
+        "Quinoa salad with beans & veggies",
+        "Chapati + paneer + veg curry"
+      ];
+      const dinnerOptions = [
+        "Grilled fish/chicken + steamed veg",
+        "Chapati + lentils + salad",
+        "Light soup + salad + small wholegrain",
+        "Stir-fry tofu + veggies + small rice"
+      ];
+      const snackOptions = [
+        "Fruit (apple/banana)",
+        "Handful of nuts",
+        "Yogurt",
+        "Veg sticks with hummus"
+      ];
+      let picks = mealLabel === 'Breakfast' ? breakfastOptions : mealLabel === 'Lunch' ? lunchOptions : mealLabel === 'Dinner' ? dinnerOptions : snackOptions;
+      const choice = randPick(picks);
+      const portion = high ? "normal portion" : (mid ? "moderate portion" : "small portion");
+      return `${choice} — ${portion}`;
+    }
+
+    // display plan in UI (natural language + sections)
+    function displayPlan(plan){
+      pill.textContent = `${plan.targetCalories} kcal/day • ${plan.macros.protein_g}g protein`;
+      output.innerHTML = '';
+
+      // header
+      const header = document.createElement('div');
+      header.innerHTML = `<div style="font-weight:800">${plan.intro}</div><div class="muted small" style="margin-top:6px">${plan.moodTip}</div>`;
+      output.appendChild(header);
+
+      // summary grid
+      const summary = document.createElement('div');
+      summary.style.display = 'grid'; summary.style.gridTemplateColumns = 'repeat(3,1fr)'; summary.style.gap='8px'; summary.style.marginTop='12px';
+      summary.innerHTML = `
+        <div style="background:var(--card-2);padding:10px;border-radius:8px">
+          <div class="muted small">Calories</div><div style="font-weight:800">${plan.targetCalories} kcal/day</div>
+        </div>
+        <div style="background:var(--card-2);padding:10px;border-radius:8px">
+          <div class="muted small">Macros (g)</div><div style="font-weight:800">${plan.macros.protein_g}P • ${plan.macros.carbs_g}C • ${plan.macros.fat_g}F</div>
+        </div>
+        <div style="background:var(--card-2);padding:10px;border-radius:8px">
+          <div class="muted small">Hydration</div><div style="font-weight:800">${plan.water_l} L/day</div>
+        </div>
+      `;
+      output.appendChild(summary);
+
+      // exercise & trend
+      const ex = document.createElement('div'); ex.style.marginTop='12px';
+      ex.innerHTML = `<div class="muted small">Exercise</div><div style="font-weight:700">${plan.exercise}</div><div class="muted small" style="margin-top:6px">Weight trend: ${plan.trend}</div>`;
+      output.appendChild(ex);
+
+      // day plans
+      const mealsBox = document.createElement('div'); mealsBox.style.marginTop='12px';
+      plan.dayPlans.forEach((day, dIdx) => {
+        const dayDiv = document.createElement('div'); dayDiv.style.marginBottom='10px';
+        dayDiv.innerHTML = `<div style="font-weight:800;margin-bottom:6px">Day ${dIdx+1} — sample meals</div>`;
+        day.forEach(m => {
+          const mEl = document.createElement('div'); mEl.className='meal';
+          mEl.innerHTML = `<div style="display:flex;justify-content:space-between"><div style="font-weight:700">${m.label}</div><div class="muted small">${m.calories} kcal</div></div>
+            <div class="muted small" style="margin-top:6px">${m.foods}</div>
+            <div style="margin-top:8px" class="muted small">Est. macros: ${m.protein_g}g P • ${m.carbs_g}g C • ${m.fat_g}g F</div>`;
+          dayDiv.appendChild(mEl);
+        });
+        mealsBox.appendChild(dayDiv);
+      });
+      output.appendChild(mealsBox);
+
+      // personalized tips
+      const tips = document.createElement('div'); tips.style.marginTop='10px';
+      tips.innerHTML = `<div style="font-weight:800">Personalized tips</div>
+        <ul>
+          <li>${randPick(['Eat a protein source at every meal to support satiety and muscle.', 'Prioritize whole foods and vegetables over processed options.'])}</li>
+          <li>${randPick(['Drink water consistently throughout the day.', 'Avoid sugary beverages; choose water or unsweetened tea.'])}</li>
+          <li>${plan.moodTip || 'Track sleep & stress; small habits compound.'}</li>
+        </ul>
+        <div class="muted small">Substitutions: ${Object.values(plan.substitutions).slice(0,3).join(' • ')}</div>`;
+      output.appendChild(tips);
+
+      // actions
+      const actions = document.createElement('div'); actions.style.marginTop='12px';
+      actions.innerHTML = `<div style="display:flex;gap:8px"><button class="primary" id="btnApplyPlan">I will follow this plan</button><button class="smallBtn" id="btnCopyPlan">Copy plan text</button></div>`;
+      output.appendChild(actions);
+
+      // wire action buttons
+      $('btnApplyPlan').addEventListener('click', ()=>{
+        store.plans = store.plans || [];
+        store.plans.unshift(plan);
+        if(store.plans.length>500) store.plans.pop();
+        persist();
+        alert('Plan saved locally. Good luck!');
+      });
+      $('btnCopyPlan').addEventListener('click', ()=>{
+        navigator.clipboard.writeText(output.innerText).then(()=>alert('Plan copied to clipboard.'));
+      });
+
+      window._lastPlan = plan;
+      renderHistory();
+    }
+
+    // render initial history and counts
+    renderHistory(); updateCounts();
+
+    // small safeguard for weight input
+    $('inpWeight').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if(v > 500) e.target.value = 500;
+      if(v < 0) e.target.value = Math.abs(v);
+    });
+
+    // If user is not signed in and has no store, show auth; otherwise hide
+    function initializeAfterAuth(){
+      hideAuthPanel();
+      // if logged in, ensure store points to user's store object
+      if(currentUser){
+        users = JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
+        if(users[currentUser]){
+          store = users[currentUser].store = users[currentUser].store || createEmptyStore();
+        } else {
+          // fallback
+          store = createEmptyStore();
+          users[currentUser] = { password: '', store };
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+      } else {
+        // guest: try to load guest store
+        const g = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        store = (g && g.history) ? g : createEmptyStore();
+      }
+      renderHistory(); updateCounts();
+      $('currentUserDisplay').textContent = currentUser ? `Signed in: ${currentUser}` : 'Guest';
+      $('btnSignOut').style.display = currentUser ? 'inline-block' : 'none';
+    }
+
+    // initial entry: if currentUser exists then initialize
+    if(currentUser) initializeAfterAuth();
+
+    /**********************
+     End of app script
+    **********************/
+
+  </script>
+</body>
+</html>
